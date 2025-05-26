@@ -1,0 +1,35 @@
+from kafka import KafkaProducer
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import json
+import time
+import kafka.errors
+
+app = FastAPI()
+
+# Retry logic to wait for Kafka to be available
+while True:
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers='kafka:9092',
+            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+            key_serializer=lambda k: k.encode('utf-8')
+        )
+        print("✅ Connected to Kafka")
+        break
+    except kafka.errors.NoBrokersAvailable:
+        print("⏳ Kafka not available, retrying in 5s...")
+        time.sleep(5)
+
+class Transaction(BaseModel):
+    account_id: str
+    type: str
+    amount: float
+
+@app.post("/transaction/")
+def create_transaction(txn: Transaction):
+    try:
+        producer.send('transactions', key=txn.account_id, value=txn.dict())
+        return {"status": "sent", "txn": txn}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

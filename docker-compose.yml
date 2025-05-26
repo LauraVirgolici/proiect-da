@@ -1,0 +1,30 @@
+# docker-compose.yml
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  transaction_service:
+    build: ./transaction_service
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kafka
+
+  account_service:
+    build: ./account_service
+    depends_on:
+      - kafka
+    ports:
+      - "8002:8002"  # <-- Add this line
